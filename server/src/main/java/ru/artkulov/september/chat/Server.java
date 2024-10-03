@@ -28,13 +28,13 @@ public class Server {
     }
 
     public synchronized void subscribe(ClientHandler clientHandler) {
-        broadcastMessage("В чат зашел: " + clientHandler.getUsername());
+        broadcastMessage("В чат зашел: " + clientHandler.getNickname());
         clients.add(clientHandler);
     }
 
     public synchronized void unsubscribe(ClientHandler clientHandler) {
         clients.remove(clientHandler);
-        broadcastMessage("Из чата вышел: " + clientHandler.getUsername());
+        broadcastMessage("Из чата вышел: " + clientHandler.getNickname());
     }
 
     public synchronized void broadcastMessage(String message) {
