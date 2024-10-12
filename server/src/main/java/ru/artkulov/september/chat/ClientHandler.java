@@ -11,10 +11,14 @@ public class ClientHandler {
     private DataInputStream in;
     private DataOutputStream out;
     private String nickname;
-    private static int userCount = 0;
+    private String role; // Роль по умолчанию
 
     public String getNickname() {
         return nickname;
+    }
+
+    public void setNickname(String nickname) {
+        this.nickname = nickname;
     }
 
     public ClientHandler(Server server, Socket socket) throws IOException {
@@ -22,19 +26,46 @@ public class ClientHandler {
         this.socket = socket;
         this.in = new DataInputStream(socket.getInputStream());
         this.out = new DataOutputStream(socket.getOutputStream());
-        userCount++;
-        nickname = "user" + userCount;
+//        nickname = "user" + userCount;
         new Thread(() -> {
             try {
                 System.out.println("Подключился новый клиент");
-                out.writeUTF("Доступные команды: " +
-                        "\nРегистрация /reg <ник> " +
+                sendMessage("Доступные команды: " +
+                        "\nАутентификация /auth <логин> <пароль> " +
+                        "\nРегистрация /reg <логин> <пароль> <ник> " +
                         "\nЛичное сообщение /w <ник> <сообщение>" +
                         "\nВыход из чата /exit");
+                sendMessage("Перед работой необходимо выполнить аутентификацию или регистрацию");
+                while (true) {
+                    String message = in.readUTF();
+                    if (message.startsWith("/auth ")) {
+                        String[] elements = message.split(" ");
+                        if (elements.length != 3) {
+                            sendMessage("Неверный формат команды /auth");
+                            continue;
+                        }
+                        if (server.getAuthenticationProvider().authenticate(this, elements[1], elements[2])) {
+                            this.role=server.getAuthenticationProvider().getRole(this);
+                            break;
+                        }
+                        continue;
+                    }
+                    if (message.startsWith("/reg ")) {
+                        String[] elements = message.split(" ");
+                        if (elements.length != 4) {
+                            sendMessage("Неверный формат команды /reg");
+                            continue;
+                        }
+                        if (server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3], elements[4])) {
+                            break;
+                        }
+                        continue;
+                    }
+                }
                 while (true) {
                     String message = in.readUTF();
                     if (message.startsWith("/")) {
-                        if (message.startsWith("/w")) {
+                        if (message.startsWith("/w ")) {
                             String[] parts = message.split(" ", 3);
                             if (parts.length == 3) {
                                 sendPrivateMessage(parts[1], parts[2]);
@@ -43,15 +74,16 @@ public class ClientHandler {
                             }
                         }
                         if (message.equals("/exit")) {
-                            sendMessage("/exitok");
+                            sendMessage("/exitok ");
                             break;
                         }
-                        if (message.startsWith("/reg ")) {
-                            String[] cmd = message.split(" ");
-                            if (cmd.length == 2) {
-                                this.nickname = cmd[1];
+                        if (message.startsWith("/kick ") && role.equals("ADMIN")) {
+                            String[] parts = message.split(" ");
+                            if (parts.length == 2) {
+                                kickUser(parts[1]);
                             } else {
-                                sendMessage("Неверный формат команды /reg. Используйте: /reg <ник>");
+                                sendMessage("Неверный формат команды(Используйте: /kick <ник>) или нет доступа к команде.");
+                                continue;
                             }
                         }
                         continue;
@@ -109,4 +141,17 @@ public class ClientHandler {
             e.printStackTrace();
         }
     }
+
+    public void kickUser(String userToKick) throws IOException {
+        for (ClientHandler c : server.clients) {
+            if (c.getNickname().equals(userToKick)) {
+                c.sendMessage("Вы были отключены администратором.");
+                c.disconnect();
+                server.broadcastMessage(userToKick + " был отключен администратором.");
+                return;
+            }
+        }
+        out.writeUTF("Пользователь с ником " + userToKick + " не найден.");
+    }
+
 }
