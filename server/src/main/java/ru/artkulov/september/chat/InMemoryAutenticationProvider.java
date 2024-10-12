@@ -8,11 +8,13 @@ public class InMemoryAutenticationProvider implements AuthenticationProvider {
         private String login;
         private String password;
         private String nickname;
+        private String role;
 
-        public User(String login, String password, String nickname) {
+        public User(String login, String password, String nickname, String role) {
             this.login = login;
             this.password = password;
             this.nickname = nickname;
+            this.role = role;
         }
     }
 
@@ -22,9 +24,9 @@ public class InMemoryAutenticationProvider implements AuthenticationProvider {
     public InMemoryAutenticationProvider(Server server) {
         this.server = server;
         this.users = new ArrayList<>();
-        this.users.add(new User("login1", "pass1", "user1"));
-        this.users.add(new User("login2", "pass2", "user2"));
-        this.users.add(new User("login3", "pass3", "user3"));
+        this.users.add(new User("admin", "admin", "admin", "ADMIN"));
+        this.users.add(new User("login2", "pass2", "user2", "USER"));
+        this.users.add(new User("login3", "pass3", "user3", "USER"));
     }
 
     @Override
@@ -78,8 +80,8 @@ public class InMemoryAutenticationProvider implements AuthenticationProvider {
     }
 
     @Override
-    public boolean registration(ClientHandler clientHandler, String login, String password, String nickname) {
-        if (login.trim().length() < 3 || password.trim().length() < 6 || nickname.trim().length() < 1) {
+    public boolean registration(ClientHandler clientHandler, String login, String password, String nickname, String role) {
+        if (login.trim().length() < 3 || password.trim().length() < 6 || nickname.trim().length() < 1 || role.trim().length() < 4) {
             clientHandler.sendMessage("Логин 3+ символа, Пароль 6+ символов, Никнейм 1+ символ");
             return false;
         }
@@ -91,10 +93,20 @@ public class InMemoryAutenticationProvider implements AuthenticationProvider {
             clientHandler.sendMessage("Указанный никнейм уже занят");
             return false;
         }
-        users.add(new User(login, password, nickname));
+        users.add(new User(login, password, nickname, role));
         clientHandler.setNickname(nickname);
         server.subscribe(clientHandler);
         clientHandler.sendMessage("/regok " + nickname);
         return true;
+    }
+
+    @Override
+    public String getRole(ClientHandler clientHandler) {
+        for (User u : users) {
+            if (u.nickname.equals(clientHandler.getNickname())) {
+                return u.role;
+            }
+        }
+        return null;
     }
 }

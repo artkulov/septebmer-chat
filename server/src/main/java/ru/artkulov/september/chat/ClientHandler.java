@@ -11,6 +11,7 @@ public class ClientHandler {
     private DataInputStream in;
     private DataOutputStream out;
     private String nickname;
+    private String role; // Роль по умолчанию
 
     public String getNickname() {
         return nickname;
@@ -31,6 +32,7 @@ public class ClientHandler {
                 sendMessage("Доступные команды: " +
                         "\nАутентификация /auth <логин> <пароль> " +
                         "\nРегистрация /reg <логин> <пароль> <ник> " +
+                        "\nОтключить пользователя (только для администратора) /kick <ник> " +
                         "\nЛичное сообщение /w <ник> <сообщение>" +
                         "\nВыход из чата /exit");
                 sendMessage("Перед работой необходимо выполнить аутентификацию или регистрацию");
@@ -42,6 +44,10 @@ public class ClientHandler {
                             sendMessage("Неверный формат команды /auth");
                             continue;
                         }
+                        if (server.getAuthenticationProvider().authenticate(this, elements[1], elements[2])) {
+                            this.role = server.getAuthenticationProvider().getRole(this);
+                            break;
+                        }
                         continue;
                     }
                     if (message.startsWith("/reg ")) {
@@ -50,7 +56,7 @@ public class ClientHandler {
                             sendMessage("Неверный формат команды /reg");
                             continue;
                         }
-                        if (server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3])) {
+                        if (server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3], elements[4])) {
                             break;
                         }
                         continue;
@@ -70,6 +76,15 @@ public class ClientHandler {
                         if (message.equals("/exit")) {
                             sendMessage("/exitok ");
                             break;
+                        }
+                        if (message.startsWith("/kick ") && role.equals("ADMIN")) {
+                            String[] parts = message.split(" ");
+                            if (parts.length == 2) {
+                                kickUser(parts[1]);
+                            } else {
+                                sendMessage("Неверный формат команды(Используйте: /kick <ник>) или нет доступа к команде.");
+                                continue;
+                            }
                         }
                         continue;
                     }
@@ -125,6 +140,18 @@ public class ClientHandler {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void kickUser(String userToKick) throws IOException {
+        for (ClientHandler c : server.clients) {
+            if (c.getNickname().equals(userToKick)) {
+                c.sendMessage("Вы были отключены администратором.");
+                c.disconnect();
+                server.broadcastMessage(userToKick + " был отключен администратором.");
+                return;
+            }
+        }
+        out.writeUTF("Пользователь с ником " + userToKick + " не найден.");
     }
 
 }
