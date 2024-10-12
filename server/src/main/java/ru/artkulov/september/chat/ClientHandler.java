@@ -11,10 +11,13 @@ public class ClientHandler {
     private DataInputStream in;
     private DataOutputStream out;
     private String nickname;
-    private static int userCount = 0;
 
     public String getNickname() {
         return nickname;
+    }
+
+    public void setNickname(String nickname) {
+        this.nickname = nickname;
     }
 
     public ClientHandler(Server server, Socket socket) throws IOException {
@@ -22,19 +25,41 @@ public class ClientHandler {
         this.socket = socket;
         this.in = new DataInputStream(socket.getInputStream());
         this.out = new DataOutputStream(socket.getOutputStream());
-        userCount++;
-        nickname = "user" + userCount;
         new Thread(() -> {
             try {
                 System.out.println("Подключился новый клиент");
-                out.writeUTF("Доступные команды: " +
-                        "\nРегистрация /reg <ник> " +
+                sendMessage("Доступные команды: " +
+                        "\nАутентификация /auth <логин> <пароль> " +
+                        "\nРегистрация /reg <логин> <пароль> <ник> " +
                         "\nЛичное сообщение /w <ник> <сообщение>" +
                         "\nВыход из чата /exit");
+                sendMessage("Перед работой необходимо выполнить аутентификацию или регистрацию");
+                while (true) {
+                    String message = in.readUTF();
+                    if (message.startsWith("/auth ")) {
+                        String[] elements = message.split(" ");
+                        if (elements.length != 3) {
+                            sendMessage("Неверный формат команды /auth");
+                            continue;
+                        }
+                        continue;
+                    }
+                    if (message.startsWith("/reg ")) {
+                        String[] elements = message.split(" ");
+                        if (elements.length != 4) {
+                            sendMessage("Неверный формат команды /reg");
+                            continue;
+                        }
+                        if (server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3])) {
+                            break;
+                        }
+                        continue;
+                    }
+                }
                 while (true) {
                     String message = in.readUTF();
                     if (message.startsWith("/")) {
-                        if (message.startsWith("/w")) {
+                        if (message.startsWith("/w ")) {
                             String[] parts = message.split(" ", 3);
                             if (parts.length == 3) {
                                 sendPrivateMessage(parts[1], parts[2]);
@@ -43,16 +68,8 @@ public class ClientHandler {
                             }
                         }
                         if (message.equals("/exit")) {
-                            sendMessage("/exitok");
+                            sendMessage("/exitok ");
                             break;
-                        }
-                        if (message.startsWith("/reg ")) {
-                            String[] cmd = message.split(" ");
-                            if (cmd.length == 2) {
-                                this.nickname = cmd[1];
-                            } else {
-                                sendMessage("Неверный формат команды /reg. Используйте: /reg <ник>");
-                            }
                         }
                         continue;
                     }
@@ -109,4 +126,5 @@ public class ClientHandler {
             e.printStackTrace();
         }
     }
+
 }
