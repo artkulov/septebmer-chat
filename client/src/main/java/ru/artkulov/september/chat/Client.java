@@ -25,11 +25,11 @@ public class Client {
                         break;
                     }
                     if (message.startsWith("/authok ")) {
-                        System.out.println("Удалось успешно войти в чат под именем: "+ message.split(" ")[1]);
+                        System.out.println("Удалось успешно войти в чат под именем: " + message.split(" ")[1]);
                         continue;
                     }
                     if (message.startsWith("/regok ")) {
-                        System.out.println("Удалось успешно пройти регистрацию и войти в чат под именем: "+ message.split(" ")[1]);
+                        System.out.println("Удалось успешно пройти регистрацию и войти в чат под именем: " + message.split(" ")[1]);
                         continue;
                     }
                     System.out.println(message);
